@@ -52,6 +52,8 @@ pub use config::{
     BufferSize, BufferSizes, BumpAllocatorMemory, BumpAllocators, ConfigUniform, IndirectCount,
     RenderConfig, WorkgroupCounts, WorkgroupSize,
 };
+// fork: shell-sized scratch buffers, see docs/fork/README.md
+pub use config::use_upstream_scratch;
 pub use draw::{
     DRAW_INFO_FLAGS_FILL_RULE_BIT, DrawBbox, DrawBeginClip, DrawBlurRoundedRect, DrawColor,
     DrawImage, DrawLinearGradient, DrawMonoid, DrawRadialGradient, DrawSweepGradient, DrawTag,

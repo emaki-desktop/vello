@@ -12,6 +12,51 @@ use bytemuck::{Pod, Zeroable};
 const TILE_WIDTH: u32 = 16;
 const TILE_HEIGHT: u32 = 16;
 
+/*
+ * Fork (098765434/vello, branch ocbk): the bump-allocated scratch buffers are
+ * sized for a desktop shell, not for paris-30k. Upstream's sizes come to about
+ * 165 MB a set, and the renderer's pool keeps every set it ever made, so a
+ * shell paid some 360 MB of GPU memory for a few hundred paths a frame. These
+ * come to about 29 MB a set; the heaviest shell scene measured (a stroked
+ * clock face, 36k lines) stays 3-7x under each of them.
+ *
+ * An overflow is silent: the shaders set `BumpAllocators::failed` and the run
+ * comes out blank. If a scene ever does, `use_upstream_scratch(true)` before
+ * the first render restores the upstream sizes (amane turns it on with
+ * `AMANE_VELLO_SCRATCH=upstream`), and the `debug_layers` feature reads back
+ * what a scene took (amane's `vello-stats` feature prints it).
+ */
+const SHELL_BIN_DATA: u32 = 1 << 18;
+const SHELL_TILES: u32 = 1 << 18;
+const SHELL_LINES: u32 = 1 << 18;
+const SHELL_SEG_COUNTS: u32 = 1 << 18;
+const SHELL_SEGMENTS: u32 = 1 << 18;
+const SHELL_BLEND_SPILL: u32 = 1 << 20;
+const SHELL_PTCL: u32 = 1 << 21;
+
+const UPSTREAM_BIN_DATA: u32 = 1 << 18;
+const UPSTREAM_TILES: u32 = 1 << 21;
+const UPSTREAM_LINES: u32 = 1 << 21;
+const UPSTREAM_SEG_COUNTS: u32 = 1 << 21;
+const UPSTREAM_SEGMENTS: u32 = 1 << 21;
+// 16 * 16 (1 << 8) is one blend spill, so this allows for 4096 spills.
+const UPSTREAM_BLEND_SPILL: u32 = 1 << 20;
+const UPSTREAM_PTCL: u32 = 1 << 23;
+
+static UPSTREAM_SCRATCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Sizes the scratch buffers as upstream does (for scenes like paris-30k) instead of for a shell.
+///
+/// Call it before the first render: a set already allocated keeps its sizes. Fork addition; see
+/// `docs/fork/README.md`.
+pub fn use_upstream_scratch(upstream: bool) {
+    UPSTREAM_SCRATCH.store(upstream, std::sync::atomic::Ordering::Relaxed);
+}
+
+fn upstream_scratch() -> bool {
+    UPSTREAM_SCRATCH.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 // TODO: Obtain these from the vello_shaders crate
 pub(crate) const PATH_REDUCE_WG: u32 = 256;
 const PATH_BBOX_WG: u32 = 256;
@@ -395,17 +440,38 @@ impl BufferSizes {
         let aligned_n_bins = align_up(n_bins, 256);
         let bin_headers = BufferSize::new(binning_wgs * aligned_n_bins);
 
-        // The following buffer sizes have been hand picked to accommodate the vello test scenes as
-        // well as paris-30k. These should instead get derived from the scene layout using
-        // reasonable heuristics.
-        let bin_data = BufferSize::new(1 << 18);
-        let tiles = BufferSize::new(1 << 21);
-        let lines = BufferSize::new(1 << 21);
-        let seg_counts = BufferSize::new(1 << 21);
-        let segments = BufferSize::new(1 << 21);
-        // 16 * 16 (1 << 8) is one blend spill, so this allows for 4096 spills.
-        let blend_spill = BufferSize::new(1 << 20);
-        let ptcl = BufferSize::new(1 << 23);
+        // Upstream hand picked these to accommodate the vello test scenes as well as paris-30k,
+        // and notes they should instead get derived from the scene layout. The fork sizes them
+        // for a shell's scenes; see the constants at the top of this file.
+        let (bin_data, tiles, lines, seg_counts, segments, blend_spill, ptcl) =
+            if upstream_scratch() {
+                (
+                    UPSTREAM_BIN_DATA,
+                    UPSTREAM_TILES,
+                    UPSTREAM_LINES,
+                    UPSTREAM_SEG_COUNTS,
+                    UPSTREAM_SEGMENTS,
+                    UPSTREAM_BLEND_SPILL,
+                    UPSTREAM_PTCL,
+                )
+            } else {
+                (
+                    SHELL_BIN_DATA,
+                    SHELL_TILES,
+                    SHELL_LINES,
+                    SHELL_SEG_COUNTS,
+                    SHELL_SEGMENTS,
+                    SHELL_BLEND_SPILL,
+                    SHELL_PTCL,
+                )
+            };
+        let bin_data = BufferSize::new(bin_data);
+        let tiles = BufferSize::new(tiles);
+        let lines = BufferSize::new(lines);
+        let seg_counts = BufferSize::new(seg_counts);
+        let segments = BufferSize::new(segments);
+        let blend_spill = BufferSize::new(blend_spill);
+        let ptcl = BufferSize::new(ptcl);
         Self {
             path_reduced,
             path_reduced2,
