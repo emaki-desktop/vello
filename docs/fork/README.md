@@ -40,7 +40,9 @@ the largest value seen. amane's `gradient` example went from 193 MB to 65 MB of 
 rasterisation exit early, and `render_to_texture` still returns `Ok`: the run comes out blank or
 partial. Two ways to check a scene's headroom:
 
-- `VELLO_SCRATCH=upstream` in the environment restores upstream's sizes without a rebuild. If a
+- `vello_encoding::use_upstream_scratch(true)` (reached from `vello` as
+  `vello::low_level::vello_encoding`), called before the first render, restores upstream's sizes;
+  amane calls it when started with `AMANE_VELLO_SCRATCH=upstream`, so no rebuild is needed. If a
   blank run fills in, the scene overflowed.
 - vello's `debug_layers` cargo feature makes `render_to_texture_async` read the `BumpAllocators`
   counters back from the GPU: `failed`, plus what the run took of each buffer. amane's
@@ -89,8 +91,8 @@ shell):
 
 ```toml
 [patch.crates-io]
-vello = { git = "https://github.com/098765434/vello", branch = "ocbk" }
-vello_encoding = { git = "https://github.com/098765434/vello", branch = "ocbk" }
+vello = { git = "https://github.com/098765434/vello", rev = "<ocbk commit>" }
+vello_encoding = { git = "https://github.com/098765434/vello", rev = "<ocbk commit>" }
 ```
 
 The nix builds need the fork's content hash in `cargoLock.outputHashes`, once per crate
@@ -99,8 +101,24 @@ checkout); the first build prints the expected `sha256-…` on mismatch.
 
 ## Maintaining
 
-- `upstream` remote: `https://github.com/linebender/vello.git`. The fork follows the tag amane's
-  `vello` dependency is pinned to; when amane moves to a new vello, rebase `ocbk` onto that tag.
+- `upstream` remote: `https://github.com/linebender/vello.git`. The fork follows upstream `main`,
+  and the fork point is tagged `fork-base-<date>` (now `fork-base-2026-11-07`). The fork's three
+  commits touch only `research/vello_encoding` and `research/vello_research`, which upstream
+  rarely changes, so a rebase is usually clean. `ocbk-pre-tidy` keeps the commits from before
+  the last rebase, so revisions pinned before it can still be fetched.
+- Rebasing, one commit per feature (scratch sizes, the shrinking atlas, the pool that lets go):
+
+  ```sh
+  git fetch upstream
+  git tag fork-base-<date> upstream/main
+  git rebase --onto fork-base-<date> <old fork-base> ocbk
+  git range-diff <old fork-base>..<old ocbk> fork-base-<date>..ocbk
+  cargo test -p vello_encoding && cargo check --workspace
+  ```
+
+  The workspace version must stay `0.11.x` for amane's `vello = "0.11"` to take the patch; if
+  upstream bumps it, amane's dependency moves with it. Then bump the `rev` and the
+  `outputHashes` in amane and amane-shell.
 - Upstream has moved its effort to the sparse-strips renderers (`vello_cpu`, `vello_gpu`), where
   this problem does not exist. Moving amane to `vello_gpu` once it has feature parity and a
   stable API retires this fork.
