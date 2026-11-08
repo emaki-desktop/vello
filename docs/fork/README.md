@@ -4,11 +4,28 @@ This fork of [vello](https://github.com/linebender/vello) exists to make the com
 small enough for a desktop shell, used by the
 [amane](https://github.com/098765434/amane) fork and the
 [amane-shell](https://github.com/098765434/amane-shell) desktop. It is branch `ocbk` on top of
-tag `v0.11.0`, which is what crates.io's `vello 0.11.0` and `vello_encoding 0.11.0` were published
-from (the trees are identical). Upstream's own docs and code are left as they are; everything
-the fork adds is here.
+upstream `main` at the tag `fork-base-2026-11-07` (commit `c161b8ae`, 50 commits after
+`v0.11.0`). The workspace version is still `0.11.x`, which is what lets amane's `vello = "0.11"`
+accept the patch. Upstream's own docs and code are left as they are; everything the fork adds is
+here. The fork's commits: `git log fork-base-2026-11-07..ocbk`. The three code commits, one per
+change:
 
-## Shell-sized scratch buffers
+- `vello_encoding: shell-sized scratch buffers`
+- `vello_encoding: retire unused atlas images and shrink the atlas`
+- `vello: retire pooled buffers after 60 unused runs, Renderer::release_scratch`
+
+## Using the fork
+
+### Why it exists
+
+Upstream's compute renderer (`vello`, `vello_encoding`) is sized for its test scenes and
+paris-30k and keeps every GPU buffer it ever made. A desktop shell draws a few hundred paths a
+frame, sits idle most of the time, and shares an integrated GPU's memory with everything else on
+the machine. The fork changes three things, each a commit of its own: the scratch buffers are
+sized for a shell's scenes, the image atlas shrinks when its images go, and the buffer pool lets
+go of what no run takes any more.
+
+### Shell-sized scratch buffers
 
 `research/vello_encoding/src/config.rs` sizes the bump-allocated scratch buffers that the
 compute pipeline fills on the GPU: `tiles`, `lines`, `seg_counts`, `segments`, `ptcl`,
@@ -50,7 +67,7 @@ partial. Two ways to check a scene's headroom:
   `AMANE_FRAMES=1`. (vello's `bump_estimate` feature gives a CPU-side bound instead, but it
   overshoots stroked scenes by 10×.)
 
-## An image atlas that shrinks
+### An image atlas that shrinks
 
 `research/vello_encoding/src/image_cache.rs` keeps every image a scene draws in one square
 atlas texture that doubles as needed, up to 8192² (256 MB). Upstream evicts an image only when a
@@ -65,7 +82,7 @@ left fits in half the side with at most half the area used, repacking as it goes
 sees the new size, frees the old texture and uploads the survivors again. Covered by
 `retired_entries_free_the_atlas_and_shrink_it` in the crate's tests.
 
-## A scratch pool that lets go
+### A scratch pool that lets go
 
 `research/vello_research/src/wgpu_engine.rs`'s `ResourcePool` hands every run its scratch
 buffers and scene uploads and takes them back afterwards, keyed by size class, usage and name.
@@ -83,7 +100,7 @@ The fork does two things:
   `AMANE_VELLO_IDLE`, 30 s by default) and polls the device once, since wgpu frees dropped
   buffers only on a poll.
 
-## Using it
+### Depending on it
 
 Both `amane` and `amane-shell` patch both crates from their root manifests (a
 `[patch.crates-io]` only applies from the root workspace, and amane is a git dependency of the
@@ -99,26 +116,65 @@ The nix builds need the fork's content hash in `cargoLock.outputHashes`, once pe
 (`vello-0.11.0` and `vello_encoding-0.11.0`, the same hash since they come from the same
 checkout); the first build prints the expected `sha256-…` on mismatch.
 
-## Maintaining
+### Knobs
+
+Everything the fork adds to the API, in one place:
+
+| Knob | Where | What it does |
+|---|---|---|
+| `vello_encoding::use_upstream_scratch(bool)` | `research/vello_encoding/src/config.rs`; from `vello` as `vello::low_level::vello_encoding::use_upstream_scratch` | Called before the first render, `true` restores upstream's scratch sizes. amane maps `AMANE_VELLO_SCRATCH=upstream` to it. |
+| `Renderer::release_scratch()` | `research/vello_research/src/lib.rs` | Drops the buffer pool; shaders and the image atlas stay. Poll the device once afterwards. amane calls it after `AMANE_VELLO_IDLE` seconds (30 by default). |
+| `debug_layers` cargo feature | `research/vello_research/Cargo.toml` (upstream's feature) | `render_to_texture_async` reads the `BumpAllocators` counters back from the GPU, so an overflow and each buffer's use can be seen. amane's `vello-stats` feature builds with it. |
+
+## Maintaining the fork
+
+### Where things are
 
 - `upstream` remote: `https://github.com/linebender/vello.git`. The fork follows upstream `main`,
-  and the fork point is tagged `fork-base-<date>` (now `fork-base-2026-11-07`). The fork's three
-  commits touch only `research/vello_encoding` and `research/vello_research`, which upstream
-  rarely changes, so a rebase is usually clean. `ocbk-pre-tidy` keeps the commits from before
-  the last rebase, so revisions pinned before it can still be fetched.
-- Rebasing, one commit per feature (scratch sizes, the shrinking atlas, the pool that lets go):
+  and the fork point is tagged `fork-base-<date>` (now `fork-base-2026-11-07`).
+- The fork's commits touch only `research/vello_encoding` and `research/vello_research`, which
+  upstream rarely changes, so a rebase is usually clean. Upstream files are not edited, with one
+  exception: a one-line banner at the top of the root `README.md` that points at `FORK.md`.
+- `ocbk-pre-tidy` keeps the commits from before the last rebase, so revisions pinned before it
+  can still be fetched.
+- `.github/workflows/fork.yml` is the fork's own CI (format, clippy and tests for
+  `vello_encoding` and `vello`, a workspace check, and amane-shell's `scripts/lint-terms` on the
+  lines added since the fork point). Upstream's `ci.yml` and `web-demo.yml` stay as they are in
+  the tree and are disabled in the fork's Actions settings, since they expect upstream's
+  secrets, LFS cache and `main` branch.
 
-  ```sh
-  git fetch upstream
-  git tag fork-base-<date> upstream/main
-  git rebase --onto fork-base-<date> <old fork-base> ocbk
-  git range-diff <old fork-base>..<old ocbk> fork-base-<date>..ocbk
-  cargo test -p vello_encoding && cargo check --workspace
-  ```
+```mermaid
+gitGraph
+    commit id: "upstream main …"
+    commit id: "fork-base-2026-11-07" tag: "fork-base-2026-11-07"
+    branch ocbk
+    commit id: "scratch buffers"
+    commit id: "atlas shrinks"
+    commit id: "pool lets go"
+    commit id: "docs(fork)"
+```
 
-  The workspace version must stay `0.11.x` for amane's `vello = "0.11"` to take the patch; if
-  upstream bumps it, amane's dependency moves with it. Then bump the `rev` and the
-  `outputHashes` in amane and amane-shell.
-- Upstream has moved its effort to the sparse-strips renderers (`vello_cpu`, `vello_gpu`), where
-  this problem does not exist. Moving amane to `vello_gpu` once it has feature parity and a
-  stable API retires this fork.
+### Rebasing
+
+One commit per feature (scratch sizes, the shrinking atlas, the pool that lets go), rebased onto
+the new fork point:
+
+```sh
+git fetch upstream
+git tag fork-base-<date> upstream/main
+git rebase --onto fork-base-<date> <old fork-base> ocbk
+git range-diff <old fork-base>..<old ocbk> fork-base-<date>..ocbk
+cargo test -p vello_encoding && cargo check --workspace
+```
+
+Then update the `fork-base-<date>` in this file, in `FORK.md` and in `.github/workflows/fork.yml`
+(the `lint-terms --diff` base). The workspace version must stay `0.11.x` for amane's
+`vello = "0.11"` to take the patch; if upstream bumps it, amane's dependency moves with it. Then
+bump the `rev` and the `outputHashes` in amane and amane-shell.
+
+### Retiring the fork
+
+Upstream has moved its effort to the sparse-strips renderers (`vello_cpu`, `vello_gpu`), where
+this problem does not exist. Moving amane to `vello_gpu` once it has feature parity and a
+stable API retires this fork. The fork's changes are not proposed upstream, in line with
+upstream's `AGENTS.md` and the Linebender LLM contribution policy.
