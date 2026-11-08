@@ -1,0 +1,60 @@
+# The fork's own CI, for the ocbk branch. A file of its own, so upstream's
+# ci.yml and web-demo.yml stay untouched and a rebase never conflicts here;
+# those two are disabled in the repository's Actions settings.
+name: fork
+
+on:
+  push:
+    branches: [ocbk]
+  pull_request:
+    branches: [ocbk]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      # the same libraries upstream's ci.yml installs for its native jobs
+      - name: native dependencies
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libfontconfig-dev
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      # the two crates the fork changes
+      - name: clippy
+        run: cargo clippy -p vello_encoding -p vello --all-targets --locked -- -D warnings
+
+      # the atlas tests live here; vello's own tests need a GPU
+      - name: test
+        run: cargo test -p vello_encoding --locked
+
+      # the rest of the workspace still builds against the fork's crates
+      - name: check workspace
+        run: cargo check --workspace --locked
+
+  # no other vendor's platform terms on the lines the fork added (amane-shell's
+  # scripts/lint-terms, against the fork point)
+  terms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/checkout@v4
+        with:
+          repository: 098765434/amane-shell
+          path: .shell
+
+      - name: lint-terms
+        run: .shell/scripts/lint-terms --diff fork-base-2026-11-07
