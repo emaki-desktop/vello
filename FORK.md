@@ -1,14 +1,14 @@
 # Fork notes — vello
 
 A fork of [vello](https://github.com/linebender/vello), Linebender's GPU 2D renderer, kept for
-the [amane](https://github.com/098765434/amane) fork and the
-[amane-shell](https://github.com/098765434/amane-shell) desktop. It makes the compute renderer
+the [amane](https://github.com/emaki-desktop/amane) fork and the
+[emaki](https://github.com/emaki-desktop/emaki) desktop. It makes the compute renderer
 (`vello`, `vello_encoding`) fit a desktop shell's GPU memory: scratch buffers sized for a
 shell's scenes instead of paris-30k, an image atlas that shrinks when its images go, and a buffer
 pool that lets go of what no run takes any more. On an integrated GPU that is some 300 MB less
 than upstream while the desktop sits idle.
 
-- Branch `ocbk`, a short series of commits over upstream `main` at the tag
+- Branch `emaki`, a short series of commits over upstream `main` at the tag
   `fork-base-2026-11-07` (commit `c161b8ae`, 50 commits after `v0.11.0`). The workspace version
   stays `0.11.x`, so a `vello = "0.11"` dependency takes the fork through `[patch.crates-io]`.
 - Footprint: only `research/vello_encoding` and `research/vello_research` change. Upstream's

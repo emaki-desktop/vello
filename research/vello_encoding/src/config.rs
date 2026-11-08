@@ -13,7 +13,7 @@ const TILE_WIDTH: u32 = 16;
 const TILE_HEIGHT: u32 = 16;
 
 /*
- * Fork (098765434/vello, branch ocbk): the bump-allocated scratch buffers are
+ * Fork (emaki-desktop/vello, branch emaki): the bump-allocated scratch buffers are
  * sized for a desktop shell, not for paris-30k. Upstream's sizes come to about
  * 165 MB a set, and the renderer's pool keeps every set it ever made, so a
  * shell paid some 360 MB of GPU memory for a few hundred paths a frame. These

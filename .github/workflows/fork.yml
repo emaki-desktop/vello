@@ -1,13 +1,13 @@
-# The fork's own CI, for the ocbk branch. A file of its own, so upstream's
+# The fork's own CI, for the emaki branch. A file of its own, so upstream's
 # ci.yml and web-demo.yml stay untouched and a rebase never conflicts here;
 # those two are disabled in the repository's Actions settings.
 name: fork
 
 on:
   push:
-    branches: [ocbk]
+    branches: [emaki]
   pull_request:
-    branches: [ocbk]
+    branches: [emaki]
   workflow_dispatch:
 
 jobs:
@@ -41,7 +41,7 @@ jobs:
       - name: check workspace
         run: cargo check --workspace --locked
 
-  # no other vendor's platform terms on the lines the fork added (amane-shell's
+  # no other vendor's platform terms on the lines the fork added (emaki's
   # scripts/lint-terms, against the fork point)
   terms:
     runs-on: ubuntu-latest
@@ -53,7 +53,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: 098765434/amane-shell
+          repository: emaki-desktop/emaki
           path: .shell
 
       - name: lint-terms

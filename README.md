@@ -1,4 +1,4 @@
-> **Fork** of [vello](https://github.com/linebender/vello) for the amane-shell desktop, on branch `ocbk` — see [FORK.md](FORK.md). The rest of this README is upstream's.
+> **Fork** of [vello](https://github.com/linebender/vello) for the emaki desktop, on branch `emaki` — see [FORK.md](FORK.md). The rest of this README is upstream's.
 
 <div align="center">
 

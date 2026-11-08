@@ -11,7 +11,7 @@ const MAX_ATLAS_SIZE: i32 = 8192;
 const EVICT_AFTER_GENERATIONS: u64 = 2;
 
 /*
- * Fork (098765434/vello, branch ocbk): upstream only evicts when an image
+ * Fork (emaki-desktop/vello, branch emaki): upstream only evicts when an image
  * doesn't fit, and the atlas keeps the largest size it ever grew to (256 MB
  * at 8192²), so a shell paid for its launcher's icons and its full-output
  * blur copies long after the launcher closed. Each resolve pass now also

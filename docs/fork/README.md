@@ -2,12 +2,12 @@
 
 This fork of [vello](https://github.com/linebender/vello) exists to make the compute renderer
 small enough for a desktop shell, used by the
-[amane](https://github.com/098765434/amane) fork and the
-[amane-shell](https://github.com/098765434/amane-shell) desktop. It is branch `ocbk` on top of
+[amane](https://github.com/emaki-desktop/amane) fork and the
+[emaki](https://github.com/emaki-desktop/emaki) desktop. It is branch `emaki` on top of
 upstream `main` at the tag `fork-base-2026-11-07` (commit `c161b8ae`, 50 commits after
 `v0.11.0`). The workspace version is still `0.11.x`, which is what lets amane's `vello = "0.11"`
 accept the patch. Upstream's own docs and code are left as they are; everything the fork adds is
-here. The fork's commits: `git log fork-base-2026-11-07..ocbk`. The three code commits, one per
+here. The fork's commits: `git log fork-base-2026-11-07..emaki`. The three code commits, one per
 change:
 
 - `vello_encoding: shell-sized scratch buffers`
@@ -49,7 +49,7 @@ The fork sizes them for a shell's scenes:
 About 29 MB a set instead of 165. Measured on amane's examples (2026-10-26, read back from the
 GPU), the heaviest scene is `canvas`, a stroked clock face and spirograph at 1216×320: 36k lines,
 37k segments, 940 tiles. `blur_shapes` at full output (2881×1769) takes 11.7k tiles and 3.1k
-segments. The amane-shell desktop itself (widgets, launcher, Quick Settings, bar, dock; 231 runs)
+segments. The emaki desktop itself (widgets, launcher, Quick Settings, bar, dock; 231 runs)
 peaks at 38.7k tiles, 104k ptcl entries, 3.5k segments and 1.1k lines. Each limit is 3–7× above
 the largest value seen. amane's `gradient` example went from 193 MB to 65 MB of VRAM.
 
@@ -102,14 +102,14 @@ The fork does two things:
 
 ### Depending on it
 
-Both `amane` and `amane-shell` patch both crates from their root manifests (a
+Both `amane` and `emaki` patch both crates from their root manifests (a
 `[patch.crates-io]` only applies from the root workspace, and amane is a git dependency of the
 shell):
 
 ```toml
 [patch.crates-io]
-vello = { git = "https://github.com/098765434/vello", rev = "<ocbk commit>" }
-vello_encoding = { git = "https://github.com/098765434/vello", rev = "<ocbk commit>" }
+vello = { git = "https://github.com/emaki-desktop/vello", rev = "<emaki commit>" }
+vello_encoding = { git = "https://github.com/emaki-desktop/vello", rev = "<emaki commit>" }
 ```
 
 The nix builds need the fork's content hash in `cargoLock.outputHashes`, once per crate
@@ -138,7 +138,7 @@ Everything the fork adds to the API, in one place:
 - `ocbk-pre-tidy` keeps the commits from before the last rebase, so revisions pinned before it
   can still be fetched.
 - `.github/workflows/fork.yml` is the fork's own CI (format, clippy and tests for
-  `vello_encoding` and `vello`, a workspace check, and amane-shell's `scripts/lint-terms` on the
+  `vello_encoding` and `vello`, a workspace check, and emaki's `scripts/lint-terms` on the
   lines added since the fork point). Upstream's `ci.yml` and `web-demo.yml` stay as they are in
   the tree and are disabled in the fork's Actions settings, since they expect upstream's
   secrets, LFS cache and `main` branch.
@@ -147,7 +147,7 @@ Everything the fork adds to the API, in one place:
 gitGraph
     commit id: "upstream main …"
     commit id: "fork-base-2026-11-07" tag: "fork-base-2026-11-07"
-    branch ocbk
+    branch emaki
     commit id: "scratch buffers"
     commit id: "atlas shrinks"
     commit id: "pool lets go"
@@ -162,15 +162,15 @@ the new fork point:
 ```sh
 git fetch upstream
 git tag fork-base-<date> upstream/main
-git rebase --onto fork-base-<date> <old fork-base> ocbk
-git range-diff <old fork-base>..<old ocbk> fork-base-<date>..ocbk
+git rebase --onto fork-base-<date> <old fork-base> emaki
+git range-diff <old fork-base>..<old emaki> fork-base-<date>..emaki
 cargo test -p vello_encoding && cargo check --workspace
 ```
 
 Then update the `fork-base-<date>` in this file, in `FORK.md` and in `.github/workflows/fork.yml`
 (the `lint-terms --diff` base). The workspace version must stay `0.11.x` for amane's
 `vello = "0.11"` to take the patch; if upstream bumps it, amane's dependency moves with it. Then
-bump the `rev` and the `outputHashes` in amane and amane-shell.
+bump the `rev` and the `outputHashes` in amane and emaki.
 
 ### Retiring the fork
 
